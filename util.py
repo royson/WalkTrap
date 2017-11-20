@@ -1,4 +1,5 @@
 import numpy as np
+import ast
 from numpy.linalg import matrix_power
 
 # Takes in probability matrix P and number of transition t
@@ -28,5 +29,10 @@ def community_to_adj(P_t, C):
 			for i in C:
 				total = total + P_t.item((i-1, j))
 			P_t_C[j] = total / len(C) 
-		return P_t_C
+		return P_t_C 
 
+# Convert a string of list into a tuple of lists
+# '[2, 3][4]' -> ([2,3],[4])
+def string_list_to_lists(s):
+	return (ast.literal_eval(s[:s.index("]",2)+1]),
+		ast.literal_eval(s[s.index("]")+1:]))
