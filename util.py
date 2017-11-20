@@ -36,3 +36,11 @@ def community_to_adj(P_t, C):
 def string_list_to_lists(s):
 	return (ast.literal_eval(s[:s.index("]",2)+1]),
 		ast.literal_eval(s[s.index("]")+1:]))
+
+# Sort communities in ascending order
+def sort_communities(C1, C2):
+	return (min(C1, C2) + max(C1, C2))
+
+# Sort communities for query
+def sort_communities_str(C1, C2):
+	return (str(min(C1, C2)) + str(max(C1, C2)))
