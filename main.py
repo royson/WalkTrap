@@ -93,12 +93,9 @@ def compute_variance_linear(N, Dd, C1, C2):
 G = nx.read_gml('karate.gml', label='id')
 #G = nx.read_adjlist('facebook_combined.txt', nodetype=int)
 
-# plt.subplot(121)
-# nx.draw(G, with_labels=True, font_weight='bold')
-# plt.show()
-
 N = G.number_of_nodes()
-
+ 
+# Add self loops
 for x in range(N):
 	G.add_edge(x+1, x+1)
 
@@ -229,12 +226,21 @@ print(bp)
 print("Number of Communities: ")
 print(len(bp))
 
-#SUBGRAPHS - self loop +2 degree. +1 edge.
-#G2 = nx.subgraph(G, [1,2,3])
-#print(G2.number_of_edges())
-#plt.subplot(122)
-#nx.draw(G2, with_labels=True, font_weight='bold')
-#plt.show()
+# Draw Graph
+pos = nx.spring_layout(G)
+cmap = plt.get_cmap('Pastel1')
+colors = cmap(np.linspace(0, 1, len(bp)))
 
+for i, C in enumerate(bp):
+	nx.draw_networkx_nodes(G, pos, nodelist=C, 
+		node_color=colors[i], 
+		with_labels=True)
+	SG = nx.subgraph(G, C)
+	nx.draw_networkx_edges(G, pos, edgelist=SG.edges, 
+		width=3.0, alpha=0.5)
+nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5)
+nx.draw_networkx_labels(G, pos)
+plt.axis('off')
+plt.show()
 
 
