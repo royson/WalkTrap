@@ -39,8 +39,12 @@ def string_list_to_lists(s):
 
 # Sort communities in ascending order
 def sort_communities(C1, C2):
-	return (min(C1, C2) + max(C1, C2))
+	return sorted(min(C1, C2) + max(C1, C2))
 
 # Sort communities for query
 def sort_communities_str(C1, C2):
 	return (str(min(C1, C2)) + str(max(C1, C2)))
+
+# Sort community for query
+def sort_community(C1):
+	return (str(sorted(C1)))

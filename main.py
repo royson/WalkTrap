@@ -6,7 +6,7 @@ import itertools
 from numpy.linalg import inv, norm
 
 # Debug mode
-DEBUG = 1;
+DEBUG = 0;
 
 # Modularity
 # Partition -> Modularity
@@ -24,6 +24,10 @@ variance = {}
 # Community -> P^t_C1.
 comm = {}
 
+# Stores the current community for per vertice for fast retrieval
+# Vertice -> Community
+community ={}
+
 t = 2
 
 # Computes Modularity for partition i in graph G
@@ -39,16 +43,16 @@ def compute_modularity(i, G):
 	Q[i] = q
 
 # Remove old communities and insert them as a new one
-def update_comm(C1, C2):
+def update_comm(C1, C2, C3):
 	new_P_t_C = ( \
-		(len(C1) * comm[str(C1)]) + \
-		(len(C2) * comm[str(C2)]) ) / \
+		(len(C1) * comm[util.sort_community(C1)]) + \
+		(len(C2) * comm[util.sort_community(C2)]) ) / \
 		(len(C1) + len(C2))
 
-	del comm[str(C1)]
-	del comm[str(C2)]
+	del comm[util.sort_community(C1)]
+	del comm[util.sort_community(C2)]
 
-	comm[str(C1 + C2)] = new_P_t_C
+	comm[util.sort_community(C3)] = new_P_t_C
 
 # Remove old variances and insert new ones
 def update_variance(C1, C2, C3, C, var):
@@ -81,31 +85,13 @@ def compute_variance_constant(C1, C2, C3):
 # (Theorem 3) Compute variance between two communities 
 def compute_variance_linear(N, Dd, C1, C2):
 	return (((len(C1) * len(C2)) / (len(C1) + len(C2))) * 
-		norm((Dd @ comm[str(C1)]) - (Dd @ comm[str(C2)]))) / N
+		norm((Dd @ comm[util.sort_community(C1)]) - 
+			(Dd @ comm[util.sort_community(C2)]))) / N
 
-# # Getter & Setter for comm
-# def insert_comm(C, val):
-# 	comm[C] = val
-
-# def get_comm(C):
-# 	return comm.get(C)
-
-# def remove_comm(C):
-# 	del comm[C]
-
-# # Getter & Setter for var
-# def insert_var(C, val):
-# 	var[C] = val
-
-# def get_var(C):
-# 	return var.get(C)
-
-# def remove_var(C):
-# 	del var[C]
-
-np.set_printoptions(threshold=np.nan)
+#np.set_printoptions(threshold=np.nan)
 
 G = nx.read_gml('karate.gml', label='id')
+#G = nx.read_adjlist('facebook_combined.txt', nodetype=int)
 
 # plt.subplot(121)
 # nx.draw(G, with_labels=True, font_weight='bold')
@@ -144,14 +130,15 @@ P = inv(D) @ A
 # Transition Matrix P^t
 P_t = util.transition_matrix_after_t(P, t)
 
-# Initialize Partition 1 and its modularity
+# Initialize Partition 1, its modularity, and community
 part = []
 for n in G.nodes:
+	community[n] = [n]
 	part.append([n])
 partition[1] = part
 compute_modularity(1, G)
 
-# Populate comm dictionary
+# Populate initial comm dictionary
 for C in part:
 	comm[str(C)] = util.community_to_adj(P_t, C)
 
@@ -190,25 +177,25 @@ for step in range(1,N):
 
 	# Update comm dict by removing C1 and C2
 	# and adding C3
-	update_comm(C1, C2)
+	update_comm(C1, C2, C3)
 
-	# Find all adjacent vertices in C3
-	av = []
+	# Update new community for each node and
+	# find all adjacent vertices in C3
+	av = set()
 	for v in C3:
-		av += list(G.adj[v])
+		community[v] = sorted(C3)
+		av |= set(G.adj[v])
+
 	# Remove duplicates and vertices already in C3
-	av = list(set(av) - set(C3))
+	av = list(av - set(C3))
 	if DEBUG:
 		print("Adj Vertices: ")
 		print(av)
 
 	# Find existing communities for each vertice
 	adj_communities = []
-	for community in part:
-		for v in av:
-			if v in community:
-				adj_communities.append(community)
-				break
+	for C in av:
+		adj_communities.append(community[C])
 
 	# Remove duplicates from adj_communities
 	adj_communities = \
