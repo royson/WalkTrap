@@ -2,6 +2,7 @@ import util
 import numpy as np
 import networkx as nx
 import itertools
+import math
 import time
 from numpy.linalg import inv, norm
 
@@ -26,7 +27,14 @@ comm = {}
 
 # Stores the current community for per vertice for fast retrieval
 # Vertice -> Community
-community ={}
+community = {}
+
+def reset_dict():
+	partition.clear()
+	Q.clear()
+	variance.clear()
+	comm.clear()
+	community.clear()
 
 # Computes Modularity for partition i in graph G
 # Includes self-loops
@@ -109,8 +117,20 @@ def main():
 		avg_ri = 0.
 		for vl in l:
 			G = util.generate_rand_graph(vN, vl)
+			reset_dict()
+
 			start_time = time.time()
-			(_, ri) = walktrap(G, t)
+
+			a = G.graph['partition']
+			V = G.number_of_nodes()
+
+			# Replace this with any algorithm you want to test
+			# example: 
+			bp = walktrap(G, t)
+			#bp = girvan_newman(G, math.ceil(vN**vl))
+
+			ri = util.rand_index(bp, a, V)
+
 			avg_ri += ri
 			avg_time += (time.time() - start_time)
 		res_ri.append(avg_ri/3)
@@ -119,28 +139,36 @@ def main():
 	print(res_ri)
 	print(res_time)
 	# Plot Evaluation Chart
-	util.plot_chart(N, res_ri, "N", "R\'")
-	util.plot_chart(N, res_time, "N", "Time")
+	# util.plot_chart(N, res_ri, "N", "R\'")
+	# util.plot_chart(N, res_time, "N", "Time")
 
 	# Uncomment to use Karate club dataset
 	# G = nx.read_gml('karate.gml', label='id')
 	# N = G.number_of_nodes()
 	# for x in range(N):
 	# 	G.add_edge(x+1, x+1)
-	# walktrap(G, t, 1)
+	# walktrap(G, t)
 
 	# Uncomment to use facebook social dataset
 	# G = nx.read_adjlist('facebook_combined.txt', nodetype=int)
 	# N = G.number_of_nodes()
 	# for x in range(N):
 	# 	G.add_edge(x, x)
-	# walktrap(G, t, 1)
+	# walktrap(G, t)
 
+# Finds communities in a graph using the Girvan–Newman method
+def girvan_newman(G, k):
+	comp = nx.algorithms.community.girvan_newman(G)
+	
+	limited = itertools.takewhile(lambda c: len(c) <= k, comp)
+	bp = None
+	for communities in limited:
+		bp = list(sorted(c) for c in communities)
 
-# Start the walktrap algorithm. 
-# Mode=0, Random Graph Mode. Return (modularity, rand_index)
-# Mode=1, Real World Data. 
-def walktrap(G, t, mode=0):
+	return bp 
+
+# Start the walktrap algorithm.  
+def walktrap(G, t):
 
 	N = G.number_of_nodes()
 
@@ -197,17 +225,24 @@ def walktrap(G, t, mode=0):
 
 		# Choose two communities based on variance
 		(C1,C2) = choose_communities()
-		if DEBUG:
-			print("Communities: ")
-			print(C1)
-			print(C2)
+
 		# Sorted communities
 		C3 = util.sort_communities(C1, C2)
 
 		# Insert new partition and its modularity 
 		prev_part = partition.get(step)
 		part = list(prev_part)
-		part.remove(C1)
+		
+		try:
+			part.remove(C1)
+		except ValueError:
+			print(C1)
+			print(C2)
+			print(part)
+			print("===")
+			print(variance)
+			nx.draw(G)
+			plt.show()
 		part.remove(C2)
 		part.append(C3)
 		partition[step+1] = part
@@ -264,12 +299,8 @@ def walktrap(G, t, mode=0):
 	# Graph Plot
 	# util.graph_plot(G, bp)
 
-	# Calculate the rand_index (Only for random graph generation)
-	if mode == 0:
-		answer = G.graph['partition']
-		ri = util.rand_index(bp, answer, N)
-		# print("Rand_index: %s" % ri)
-		return(max(Q.values()), ri)
+	# Return best partition
+	return bp
 
 if __name__ == '__main__':
 	main()
