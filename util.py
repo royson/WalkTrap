@@ -1,6 +1,11 @@
 import numpy as np
 import ast
 from numpy.linalg import matrix_power
+import itertools
+import math
+import random
+import matplotlib.pyplot as plt
+import networkx as nx
 
 # Takes in probability matrix P and number of transition t
 # Returns P^t
@@ -48,3 +53,80 @@ def sort_communities_str(C1, C2):
 # Sort community for query
 def sort_community(C1):
 	return (str(sorted(C1)))
+
+# Generate a list of community sizes
+# N = Number of Vertices
+# C = Number of Communities
+def generate_community_list(N, C):
+	return list(np.random.multinomial(N, [1/C]*C, size=1)[0])
+
+def rand_index(P1, P2, N):
+	v1 = 0
+	v2 = 0
+	v3 = 0
+
+	for C1 in P1:
+		v2 += len(C1)**2
+		for C2 in P2:
+			v1 += len(set(C1).intersection(C2))**2
+	
+	for C2 in P2:
+		v3 += len(C2)**2
+	return ( \
+		(((N**2)*v1) - (v2*v3)) / \
+		((((N**2)/2)*(v2+v3)) - (v2*v3))
+		)
+
+# Generate a random graph
+def generate_rand_graph(num_of_vertices, vl):
+	num_of_communities = math.ceil(num_of_vertices**vl)
+	while True:
+		G = nx.generators.community.random_partition_graph(
+			generate_community_list(num_of_vertices,num_of_communities)
+			, 0.9, 0.1)
+		
+		if nx.is_connected(G):
+			break
+
+	N = G.number_of_nodes()
+
+	for x in range(N):
+		G.add_edge(x, x)
+
+	return G
+
+# Plot graph G given best partition bp
+def graph_plot(G, bp):
+	pos = nx.spring_layout(G)
+	cmap = plt.get_cmap('Pastel1')
+	colors = cmap(np.linspace(0, 1, len(bp)))
+
+	for i, C in enumerate(bp):
+		nx.draw_networkx_nodes(G, pos, nodelist=C, 
+			node_color=colors[i], 
+			with_labels=True)
+		SG = nx.subgraph(G, C)
+		nx.draw_networkx_edges(G, pos, edgelist=SG.edges, 
+			width=3.0, alpha=0.5)
+	nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5)
+	nx.draw_networkx_labels(G, pos)
+	plt.axis('off')
+	plt.show()
+
+# Print results of random walk
+def print_results(partition, Q):
+	print("Max Modularity:")
+	print(max(Q.values()))
+
+	print("Best Partition: ")
+	bp = partition[max(Q, key=Q.get)]
+	print(bp)
+	print("Number of Communities: ")
+	print(len(bp))
+
+# Plot chart given [x-axis], [y-axis]
+def plot_chart(x, y, x_label, y_label):
+	plt.plot(x, y, 'bs-')
+	plt.xlabel(x_label)
+	plt.ylabel(y_label)
+	plt.show()

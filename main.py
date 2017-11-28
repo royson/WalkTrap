@@ -1,8 +1,8 @@
 import util
 import numpy as np
 import networkx as nx
-import matplotlib.pyplot as plt
 import itertools
+import time
 from numpy.linalg import inv, norm
 
 # Debug mode
@@ -27,8 +27,6 @@ comm = {}
 # Stores the current community for per vertice for fast retrieval
 # Vertice -> Community
 community ={}
-
-t = 2
 
 # Computes Modularity for partition i in graph G
 # Includes self-loops
@@ -88,159 +86,190 @@ def compute_variance_linear(N, Dd, C1, C2):
 		norm((Dd @ comm[util.sort_community(C1)]) - 
 			(Dd @ comm[util.sort_community(C2)]))) / N
 
+
 #np.set_printoptions(threshold=np.nan)
 
-G = nx.read_gml('karate.gml', label='id')
-#G = nx.read_adjlist('facebook_combined.txt', nodetype=int)
+def main():
+	t = 2
 
-N = G.number_of_nodes()
- 
-# Add self loops
-for x in range(N):
-	G.add_edge(x+1, x+1)
+	# Uncomment to generate random graphs
+	# Number of vertices
+	N = [100, 300, 1000, 3000, 10000]
+	
+	# Number of communities = N**l
+	l = [0.3, 0.42, 0.5]
 
-if DEBUG:
-	print("===== Graph Edges =====")
-	print(G.edges)
+	# Stores results for ri X N and time X N 
+	res_ri = []
+	res_time = []
 
-# Adjacency Matrix with self-loops
-A = nx.to_numpy_matrix(G, dtype=int)
+	# Generate Random Graphs of {random_vertices} Vertices
+	for vN in N:
+		avg_time = 0.
+		avg_ri = 0.
+		for vl in l:
+			G = util.generate_rand_graph(vN, vl)
+			start_time = time.time()
+			(_, ri) = walktrap(G, t)
+			avg_ri += ri
+			avg_time += (time.time() - start_time)
+		res_ri.append(avg_ri/3)
+		res_time.append(avg_time/3)
 
-if DEBUG:
-	print("===== Adjacency Matrix =====")
-	print(A)
+	print(res_ri)
+	print(res_time)
+	# Plot Evaluation Chart
+	util.plot_chart(N, res_ri, "N", "R\'")
+	util.plot_chart(N, res_time, "N", "Time")
 
-# Diagonal Matrix
-D = nx.laplacian_matrix(G) + A
+	# Uncomment to use Karate club dataset
+	# G = nx.read_gml('karate.gml', label='id')
+	# N = G.number_of_nodes()
+	# for x in range(N):
+	# 	G.add_edge(x+1, x+1)
+	# walktrap(G, t, 1)
 
-# D^(-1/2). For distance calculation
-Dtemp = np.diagonal(D)
-if DEBUG:
-	print("===== Diagonal Matrix's Diagonals =====")
-	print(Dtemp)
+	# Uncomment to use facebook social dataset
+	# G = nx.read_adjlist('facebook_combined.txt', nodetype=int)
+	# N = G.number_of_nodes()
+	# for x in range(N):
+	# 	G.add_edge(x, x)
+	# walktrap(G, t, 1)
 
-Dd = np.diag(np.power(Dtemp, (-0.5)))
 
-# Transition Matrix P
-P = inv(D) @ A
+# Start the walktrap algorithm. 
+# Mode=0, Random Graph Mode. Return (modularity, rand_index)
+# Mode=1, Real World Data. 
+def walktrap(G, t, mode=0):
 
-# Transition Matrix P^t
-P_t = util.transition_matrix_after_t(P, t)
-
-# Initialize Partition 1, its modularity, and community
-part = []
-for n in G.nodes:
-	community[n] = [n]
-	part.append([n])
-partition[1] = part
-compute_modularity(1, G)
-
-# Populate initial comm dictionary
-for C in part:
-	comm[str(C)] = util.community_to_adj(P_t, C)
-
-# Populate initial variance
-for (s, d) in G.edges:
-	if s != d:
-		variance[(
-			str([s]) + str([d]))] = \
-			compute_variance_linear(N, Dd, [s], [d])
-
-# Start algorithm
-for step in range(1,N):
-	if DEBUG:
-		print("Step " + str(step))
-
-	# Choose two communities based on variance
-	(C1,C2) = choose_communities()
-	if DEBUG:
-		print("Communities: ")
-		print(C1)
-		print(C2)
-	# Sorted communities
-	C3 = util.sort_communities(C1, C2)
-
-	# Insert new partition and its modularity 
-	prev_part = partition.get(step)
-	part = list(prev_part)
-	part.remove(C1)
-	part.remove(C2)
-	part.append(C3)
-	partition[step+1] = part
-	compute_modularity(step+1, G)
-	if DEBUG:
-		print("Partition " + str(step+1))
-		print(part)
-
-	# Update comm dict by removing C1 and C2
-	# and adding C3
-	update_comm(C1, C2, C3)
-
-	# Update new community for each node and
-	# find all adjacent vertices in C3
-	av = set()
-	for v in C3:
-		community[v] = sorted(C3)
-		av |= set(G.adj[v])
-
-	# Remove duplicates and vertices already in C3
-	av = list(av - set(C3))
-	if DEBUG:
-		print("Adj Vertices: ")
-		print(av)
-
-	# Find existing communities for each vertice
-	adj_communities = []
-	for C in av:
-		adj_communities.append(community[C])
-
-	# Remove duplicates from adj_communities
-	adj_communities = \
-		list(dict((x[0], x) for x in adj_communities).values())
-	if DEBUG:
-		print("Adj Communities: ")
-		print(adj_communities)
-
-	# Update distance between C3 and its adjacent communities
-	for C in adj_communities:
-		var = 0
-		if check_compute_variance(C1, C2, C):
-			var = compute_variance_constant(C1, C2, C)
-		else:
-			var = compute_variance_linear(N, Dd, C3, C)
-		update_variance(C1, C2, C3, C, var)
+	N = G.number_of_nodes()
 
 	if DEBUG:
-		print("Variance Keys: ")
-		print(variance.keys())
+		print("===== Graph Edges =====")
+		print(G.edges)
 
-if DEBUG:
-	print("===== Partitions =====")
-	print(partition)
-	print("===== Modularities =====")
-	print(Q)
+	# Adjacency Matrix with self-loops
+	A = nx.to_numpy_matrix(G, dtype=int)
 
-print("Best Partition: ")
-bp = partition[max(Q, key=Q.get)]
-print(bp)
-print("Number of Communities: ")
-print(len(bp))
+	if DEBUG:
+		print("===== Adjacency Matrix =====")
+		print(A)
 
-# Draw Graph
-pos = nx.spring_layout(G)
-cmap = plt.get_cmap('Pastel1')
-colors = cmap(np.linspace(0, 1, len(bp)))
+	# Diagonal Matrix
+	D = nx.laplacian_matrix(G) + A
 
-for i, C in enumerate(bp):
-	nx.draw_networkx_nodes(G, pos, nodelist=C, 
-		node_color=colors[i], 
-		with_labels=True)
-	SG = nx.subgraph(G, C)
-	nx.draw_networkx_edges(G, pos, edgelist=SG.edges, 
-		width=3.0, alpha=0.5)
-nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5)
-nx.draw_networkx_labels(G, pos)
-plt.axis('off')
-plt.show()
+	# D^(-1/2). For distance calculation
+	Dtemp = np.diagonal(D)
+	if DEBUG:
+		print("===== Diagonal Matrix's Diagonals =====")
+		print(Dtemp)
 
+	Dd = np.diag(np.power(Dtemp, (-0.5)))
 
+	# Transition Matrix P
+	P = inv(D) @ A
+
+	# Transition Matrix P^t
+	P_t = util.transition_matrix_after_t(P, t)
+
+	# Initialize Partition 1, its modularity, and community
+	part = []
+	for n in G.nodes:
+		community[n] = [n]
+		part.append([n])
+	partition[1] = part
+	compute_modularity(1, G)
+
+	# Populate initial comm dictionary
+	for C in part:
+		comm[str(C)] = util.community_to_adj(P_t, C)
+
+	# Populate initial variance
+	for (s, d) in G.edges:
+		if s != d:
+			variance[util.sort_communities_str([s], [d])] = \
+				compute_variance_linear(N, Dd, [s], [d])
+
+	# Start algorithm
+	for step in range(1,N):
+		
+		#print("Step " + str(step))
+
+		# Choose two communities based on variance
+		(C1,C2) = choose_communities()
+		if DEBUG:
+			print("Communities: ")
+			print(C1)
+			print(C2)
+		# Sorted communities
+		C3 = util.sort_communities(C1, C2)
+
+		# Insert new partition and its modularity 
+		prev_part = partition.get(step)
+		part = list(prev_part)
+		part.remove(C1)
+		part.remove(C2)
+		part.append(C3)
+		partition[step+1] = part
+		compute_modularity(step+1, G)
+		if DEBUG:
+			print("Partition " + str(step+1))
+			print(part)
+
+		# Update comm dict by removing C1 and C2
+		# and adding C3
+		update_comm(C1, C2, C3)
+
+		# Update new community for each node and
+		# find all adjacent vertices in C3
+		av = set()
+		for v in C3:
+			community[v] = sorted(C3)
+			av |= set(G.adj[v])
+
+		# Remove duplicates and vertices already in C3
+		av = list(av - set(C3))
+
+		# Find existing communities for each vertice
+		adj_communities = []
+		for C in av:
+			adj_communities.append(community[C])
+
+		# Remove duplicates from adj_communities
+		adj_communities = \
+			list(dict((x[0], x) for x in adj_communities).values())
+		# Update distance between C3 and its adjacent communities
+		for C in adj_communities:
+			var = 0
+			if check_compute_variance(C1, C2, C):
+				var = compute_variance_constant(C1, C2, C)
+			else:
+				var = compute_variance_linear(N, Dd, C3, C)
+			update_variance(C1, C2, C3, C, var)
+
+		if DEBUG:
+			print("Variance: ")
+			print(variance)
+
+	if DEBUG:
+		print("===== Partitions =====")
+		print(partition)
+		print("===== Modularities =====")
+		print(Q)
+
+	#util.print_results(partition, Q)
+
+	bp = partition[max(Q, key=Q.get)]
+
+	# Graph Plot
+	# util.graph_plot(G, bp)
+
+	# Calculate the rand_index (Only for random graph generation)
+	if mode == 0:
+		answer = G.graph['partition']
+		ri = util.rand_index(bp, answer, N)
+		# print("Rand_index: %s" % ri)
+		return(max(Q.values()), ri)
+
+if __name__ == '__main__':
+	main()
