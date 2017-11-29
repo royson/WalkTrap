@@ -10,17 +10,7 @@ import networkx as nx
 # Takes in probability matrix P and number of transition t
 # Returns P^t
 def transition_matrix_after_t(P, t):
-	# P_t = P
-	# for _ in range(t-1):
-	# 	P_t = np.dot(P_t, P)
-
-	# return P_t
 	return matrix_power(P, t)
-
-# Extracts row i from matrix P^t
-# returns vector P^t_i
-#def col_prob_vector(P_t, i):
-#	return P_t[i,:]
 
 # Compute probability from a community to all its adjacent vertices
 # Returns vector P^t_C.
@@ -54,7 +44,7 @@ def sort_communities_str(C1, C2):
 def sort_community(C1):
 	return (str(sorted(C1)))
 
-# Generate a list of community sizes
+# Generate a list of heterogeneous community sizes
 # N = Number of Vertices
 # C = Number of Communities
 def generate_community_list(N, C):

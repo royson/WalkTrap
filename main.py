@@ -60,7 +60,7 @@ def compute_optimal_modularity(i, G, A):
 
 	all_links = G.number_of_edges()
 	for C in partition[i]:
-		# Get all possible pairs of 
+		# Get all possible pairs of vertices in the community
 		pairs = [(C[i],C[j]) for i in range(len(C)) \
 			for j in range(i+1, len(C))]
 		for (i, j) in pairs:
@@ -119,65 +119,84 @@ def compute_variance_linear(N, Dd, C1, C2):
 #np.set_printoptions(threshold=np.nan)
 
 def main():
+
+	# t value for WalkTrap
 	t = 2
 
-	# Uncomment to generate random graphs
+	# === Uncomment to generate random graphs ===
 	# Number of vertices
-	# N = [100, 300, 500]
+	N = [100, 300, 500, 700, 900]
 	
-	# # Number of communities = N**l
-	# l = [0.3, 0.42, 0.5]
+	# Number of communities = N**l
+	l = [0.3, 0.42, 0.5]
 
-	# # Stores results for ri X N and time X N 
-	# res_ri = []
-	# res_time = []
+	# Stores results for ri X N and time X N 
+	res_ri = []
+	res_time = []
 
-	# # Generate Random Graphs of {random_vertices} Vertices
-	# for vN in N:
-	# 	avg_time = 0.
-	# 	avg_ri = 0.
-	# 	for vl in l:
-	# 		G = util.generate_rand_graph(vN, vl)
-	# 		reset_dict()
+	# Generate Random Graphs of {random_vertices} Vertices
+	for vN in N:
+		avg_time = 0.
+		avg_ri = 0.
+		for vl in l:
+			G = util.generate_rand_graph(vN, vl)
+			reset_dict()
 
-	# 		start_time = time.time()
+			start_time = time.time()
 
-	# 		a = G.graph['partition']
-	# 		V = G.number_of_nodes()
+			a = G.graph['partition']
+			V = G.number_of_nodes()
 
-	# 		# Replace this with any algorithm you want to test
-	# 		# example: 
-	# 		#bp = walktrap(G, t)
-	# 		bp = girvan_newman(G, math.ceil(vN**vl))
+			# Replace this with any algorithm you want to test
+			# Examples: 
+			bp = walktrap(G, t)
+			#bp = girvan_newman(G, math.ceil(vN**vl))
+			#bp = lpa_communities(G)
 
-	# 		ri = util.rand_index(bp, a, V)
+			ri = util.rand_index(bp, a, V)
 
-	# 		avg_ri += ri
-	# 		avg_time += (time.time() - start_time)
-	# 	res_ri.append(avg_ri/3)
-	# 	res_time.append(avg_time/3)
+			avg_ri += ri
+			avg_time += (time.time() - start_time)
+		res_ri.append(avg_ri/3)
+		res_time.append(avg_time/3)
 
-	# print(res_ri)
-	# print(res_time)
+	print(res_ri)
+	print(res_time)
 	# Plot Evaluation Chart
-	# util.plot_chart(N, res_ri, "N", "R\'")
-	# util.plot_chart(N, res_time, "N", "Time")
+	util.plot_chart(N, res_ri, "N", "R\'")
+	util.plot_chart(N, res_time, "N", "Time")
 
-	# Uncomment to use Karate club dataset
-	G = nx.read_gml('karate.gml', label='id')
-	N = G.number_of_nodes()
-	for x in range(N):
-		G.add_edge(x+1, x+1)
-	walktrap(G, t)
+	# =======
 
-	# Uncomment to use facebook social dataset
+	# === Uncomment to use Karate club dataset ===
+	# http://konect.uni-koblenz.de/networks/ucidata-zachary
+	# G = nx.read_gml('karate.gml', label='id')
+	# N = G.number_of_nodes()
+	# for x in range(N):
+	# 	G.add_edge(x+1, x+1)
+	# walktrap(G, t)
+	# =======
+
+	# === Uncomment to use Facebook social dataset ===
+	# https://snap.stanford.edu/data/egonets-Facebook.html
 	# G = nx.read_adjlist('facebook_combined.txt', nodetype=int)
 	# N = G.number_of_nodes()
 	# for x in range(N):
 	# 	G.add_edge(x, x)
 	# walktrap(G, t)
+	# =======
+
+# Finds communities in a graph using LPA
+def lpa_communities(G):
+	res = nx.algorithms.community.asyn_lpa_communities(G)
+	bp = []
+	for C in res:
+		bp.append(list(C))
+	
+	return bp
 
 # Finds communities in a graph using the Girvan–Newman method
+# Takes in Graph G and Community k
 def girvan_newman(G, k):
 	comp = nx.algorithms.community.girvan_newman(G)
 	
@@ -243,7 +262,8 @@ def walktrap(G, t):
 	# Start algorithm
 	for step in range(1,N):
 		
-		#print("Step " + str(step))
+		if DEBUG:
+			print("Step " + str(step))
 
 		# Choose two communities based on variance
 		(C1,C2) = choose_communities()
@@ -309,7 +329,7 @@ def walktrap(G, t):
 
 	bp = partition[max(Q, key=Q.get)]
 
-	# Graph Plot
+	# Uncomment for Graph Plot
 	# util.graph_plot(G, bp)
 
 	# Return best partition
