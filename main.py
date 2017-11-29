@@ -18,17 +18,18 @@ Q = {}
 partition = {}
 
 # Stores the variances between two communities
-# "Community1Community2" -> variance
+# "Community1Community2" -> Variance
 variance = {}
 
 # Stores the probability from a community to all its adjacent nodes
 # Community -> P^t_C1.
 comm = {}
 
-# Stores the current community for per vertice for fast retrieval
+# Stores the current community for each vertice for fast retrieval
 # Vertice -> Community
 community = {}
 
+# Reset all dictionary values
 def reset_dict():
 	partition.clear()
 	Q.clear()
@@ -36,17 +37,37 @@ def reset_dict():
 	comm.clear()
 	community.clear()
 
-# Computes Modularity for partition i in graph G
+# Computes Modularity for partition i in Graph G
 # Includes self-loops
 def compute_modularity(i, G):
 	q = 0
+	all_links = G.number_of_edges()
+
 	for C in partition[i]:
-		all_links = G.number_of_edges()
 		CG = nx.subgraph(G, C)
 		links_in_C = CG.number_of_edges()
 		links_to_C = len(G.edges(C))
 		q += (links_in_C / all_links) - ((links_to_C / all_links)**2)
 	Q[i] = q
+
+# Computes Optimal Modularity for partition i in Graph G
+# Access to Adjacent Matrix A bounds need to be changed
+# depending on graph. For datasets that start with node 1
+# such as Zachary Karate club, A[i-1,j-1],
+# for other datasets that start with node 0, A[i][j]
+def compute_optimal_modularity(i, G, A):
+	q = 0
+
+	all_links = G.number_of_edges()
+	for C in partition[i]:
+		# Get all possible pairs of 
+		pairs = [(C[i],C[j]) for i in range(len(C)) \
+			for j in range(i+1, len(C))]
+		for (i, j) in pairs:
+			q += (A[i, j] - ((G.degree(i)*G.degree(j)) \
+				/ (2*all_links)))
+
+	Q[i] = q/(4*all_links)
 
 # Remove old communities and insert them as a new one
 def update_comm(C1, C2, C3):
@@ -102,52 +123,52 @@ def main():
 
 	# Uncomment to generate random graphs
 	# Number of vertices
-	N = [100, 300, 1000, 3000, 10000]
+	# N = [100, 300, 500]
 	
-	# Number of communities = N**l
-	l = [0.3, 0.42, 0.5]
+	# # Number of communities = N**l
+	# l = [0.3, 0.42, 0.5]
 
-	# Stores results for ri X N and time X N 
-	res_ri = []
-	res_time = []
+	# # Stores results for ri X N and time X N 
+	# res_ri = []
+	# res_time = []
 
-	# Generate Random Graphs of {random_vertices} Vertices
-	for vN in N:
-		avg_time = 0.
-		avg_ri = 0.
-		for vl in l:
-			G = util.generate_rand_graph(vN, vl)
-			reset_dict()
+	# # Generate Random Graphs of {random_vertices} Vertices
+	# for vN in N:
+	# 	avg_time = 0.
+	# 	avg_ri = 0.
+	# 	for vl in l:
+	# 		G = util.generate_rand_graph(vN, vl)
+	# 		reset_dict()
 
-			start_time = time.time()
+	# 		start_time = time.time()
 
-			a = G.graph['partition']
-			V = G.number_of_nodes()
+	# 		a = G.graph['partition']
+	# 		V = G.number_of_nodes()
 
-			# Replace this with any algorithm you want to test
-			# example: 
-			bp = walktrap(G, t)
-			#bp = girvan_newman(G, math.ceil(vN**vl))
+	# 		# Replace this with any algorithm you want to test
+	# 		# example: 
+	# 		#bp = walktrap(G, t)
+	# 		bp = girvan_newman(G, math.ceil(vN**vl))
 
-			ri = util.rand_index(bp, a, V)
+	# 		ri = util.rand_index(bp, a, V)
 
-			avg_ri += ri
-			avg_time += (time.time() - start_time)
-		res_ri.append(avg_ri/3)
-		res_time.append(avg_time/3)
+	# 		avg_ri += ri
+	# 		avg_time += (time.time() - start_time)
+	# 	res_ri.append(avg_ri/3)
+	# 	res_time.append(avg_time/3)
 
-	print(res_ri)
-	print(res_time)
+	# print(res_ri)
+	# print(res_time)
 	# Plot Evaluation Chart
 	# util.plot_chart(N, res_ri, "N", "R\'")
 	# util.plot_chart(N, res_time, "N", "Time")
 
 	# Uncomment to use Karate club dataset
-	# G = nx.read_gml('karate.gml', label='id')
-	# N = G.number_of_nodes()
-	# for x in range(N):
-	# 	G.add_edge(x+1, x+1)
-	# walktrap(G, t)
+	G = nx.read_gml('karate.gml', label='id')
+	N = G.number_of_nodes()
+	for x in range(N):
+		G.add_edge(x+1, x+1)
+	walktrap(G, t)
 
 	# Uncomment to use facebook social dataset
 	# G = nx.read_adjlist('facebook_combined.txt', nodetype=int)
@@ -207,6 +228,7 @@ def walktrap(G, t):
 		part.append([n])
 	partition[1] = part
 	compute_modularity(1, G)
+	#compute_optimal_modularity(1, G, A)
 
 	# Populate initial comm dictionary
 	for C in part:
@@ -230,23 +252,14 @@ def walktrap(G, t):
 		C3 = util.sort_communities(C1, C2)
 
 		# Insert new partition and its modularity 
-		prev_part = partition.get(step)
-		part = list(prev_part)
+		part = list(partition.get(step))
 		
-		try:
-			part.remove(C1)
-		except ValueError:
-			print(C1)
-			print(C2)
-			print(part)
-			print("===")
-			print(variance)
-			nx.draw(G)
-			plt.show()
+		part.remove(C1)
 		part.remove(C2)
 		part.append(C3)
 		partition[step+1] = part
 		compute_modularity(step+1, G)
+		#compute_optimal_modularity(step+1, G, A)
 		if DEBUG:
 			print("Partition " + str(step+1))
 			print(part)
@@ -257,17 +270,17 @@ def walktrap(G, t):
 
 		# Update new community for each node and
 		# find all adjacent vertices in C3
-		av = set()
+		adj_vertices = set()
 		for v in C3:
 			community[v] = sorted(C3)
-			av |= set(G.adj[v])
+			adj_vertices |= set(G.adj[v])
 
 		# Remove duplicates and vertices already in C3
-		av = list(av - set(C3))
+		adj_vertices = list(adj_vertices - set(C3))
 
 		# Find existing communities for each vertice
 		adj_communities = []
-		for C in av:
+		for C in adj_vertices:
 			adj_communities.append(community[C])
 
 		# Remove duplicates from adj_communities
@@ -292,7 +305,7 @@ def walktrap(G, t):
 		print("===== Modularities =====")
 		print(Q)
 
-	#util.print_results(partition, Q)
+	util.print_results(partition, Q)
 
 	bp = partition[max(Q, key=Q.get)]
 
